@@ -22,19 +22,19 @@ body {
 .reset {
     display: block;
     margin: 20px auto;
-    hover-text: grey;
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
     color: black;
+    background-color: grey;
     justify-content: center;
 }
 .heading{
     text-align: center;
     color: white;
     font-size: 30px;
-    font: bold;
-    font: italic;
-    font: underline;
+    font-weight: bold;
+    font-style: italic;
+    text-decoration: underline;
     font-family: 'Arial', sans-serif;
 }
