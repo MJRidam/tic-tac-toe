@@ -42,3 +42,59 @@ function updateBoard( ) {
     }
     return null;
 }
+function isboardFull() {
+    return board.every(cell => cell !== '');
+}
+function endGame() {
+    const winner = getwinner();
+    if (winner) {
+        statusText.textContent = `Player ${winner} wins!`;
+    } else if (isboardFull()) {
+        statusText.textContent = "It's a tie!";
+    }
+}
+function resetGame() {
+    board = ['', '', '', '', '', '', '', '', ''];
+    currentPlayer = 'X';
+    gameStarted = false;
+    gameFinished = false;
+    computerIsMoving = false;
+    statusText.textContent = '';
+    updateBoard();
+}
+function emptyIndexes() {
+    const indexes = [];
+    for (let index = 0; index < board.length; index++) {
+        if (board[index] === '') {
+            indexes.push(index);
+        }
+    }
+    return indexes;
+}
+function canWin(player) {
+    for (const index of emptyIndexes()) {
+        board[index] = player;
+        const winner = getwinner();
+        board[index] = '';
+        if (winner === player) {
+            return index;
+        }
+    }
+    return null;
+}
+function easycomputerMove() {
+    const empty = emptyIndexes();
+    const randomIndex = Math.floor(Math.random() * empty.length);
+    return empty[randomIndex];
+}
+function mediumcomputerMove() {
+    const winningMove = canWin('O');
+    if (winningMove !== null) {
+        return winningMove;
+    }
+    const blockingMove = canWin('X');
+    if (blockingMove !== null) {
+        return blockingMove;
+    }
+    return easycomputerMove();
+}
