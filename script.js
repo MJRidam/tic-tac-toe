@@ -69,13 +69,13 @@ function endGame() {
     const winner = getWinner();
 
     if (winner !== null) {
-        statusText.textContent = `Player ${winner} wins!`;
+        statusText.textContent = `Player ${winner} wins`;
         gameFinished = true;
         return true;
     }
 
     if (isDraw()) {
-        statusText.textContent = "It is a draw!";
+        statusText.textContent = "It is a draw";
         gameFinished = true;
         return true;
     }
@@ -234,6 +234,7 @@ function playMove(index) {
     }
 
     board[index] = currentPlayer;
+    playAudio(clickAudio);
     updateBoard();
 
     if (endGame()) {
@@ -310,5 +311,13 @@ modeSelect.addEventListener("change", () => {
 
 difficultySelect.addEventListener("change", resetGame);
 
-updateDifficultyVisibility();
-resetGame();
+updateDifficultyVisibility();resetGame();
+
+
+const clickAudio = new Audio('click.mp3');
+function playAudio(audio){
+    audio.currentTime = 0;
+    audio.play().catch((error)=>{
+        console.warn('Audio Could not Play:',error);
+    });
+}
