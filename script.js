@@ -14,7 +14,8 @@ let board = ["", "", "", "", "", "", "", "", ""];
 let currentPlayer = "X";
 let gameStarted = false;
 let gameFinished = false;
-let computerIsMoving = false;
+let computerMoving = false;
+let computerTimer = null;
 
 const winningLines = [
     [0, 1, 2],
@@ -33,11 +34,11 @@ function updateBoard() {
     });
 }
 
-function getWinner() {
+function getWinner(boardValues = board) {
     for (const line of winningLines) {
-        const first = board[line[0]];
-        const second = board[line[1]];
-        const third = board[line[2]];
+        const first = boardValues[line[0]];
+        const second = boardValues[line[1]];
+        const third = boardValues[line[2]];
 
         if (first !== "" && first === second && second === third) {
             return first;
@@ -47,20 +48,33 @@ function getWinner() {
     return null;
 }
 
-function isBoardFull() {
-    return board.every((cell) => cell !== "");
+function getEmptyIndexes(boardValues = board) {
+    const indexes = [];
+
+    boardValues.forEach((value, index) => {
+        if (value === "") {
+            indexes.push(index);
+        }
+    });
+
+    return indexes;
+}
+
+function isDraw(boardValues = board) {
+    return getWinner(boardValues) === null &&
+        getEmptyIndexes(boardValues).length === 0;
 }
 
 function endGame() {
     const winner = getWinner();
 
     if (winner !== null) {
-        statusText.textContent = winner + " wins!";
+        statusText.textContent = `Player ${winner} wins!`;
         gameFinished = true;
         return true;
     }
 
-    if (isBoardFull()) {
+    if (isDraw()) {
         statusText.textContent = "It is a draw!";
         gameFinished = true;
         return true;
@@ -69,20 +83,8 @@ function endGame() {
     return false;
 }
 
-function emptyIndexes() {
-    const indexes = [];
-
-    for (let index = 0; index < board.length; index++) {
-        if (board[index] === "") {
-            indexes.push(index);
-        }
-    }
-
-    return indexes;
-}
-
-function canWin(player) {
-    for (const index of emptyIndexes()) {
+function findWinningMove(player) {
+    for (const index of getEmptyIndexes()) {
         board[index] = player;
 
         const winner = getWinner();
@@ -97,21 +99,23 @@ function canWin(player) {
     return null;
 }
 
-function easyComputerMove() {
-    const empty = emptyIndexes();
-    const randomIndex = Math.floor(Math.random() * empty.length);
+function easyMove() {
+    const emptyIndexes = getEmptyIndexes();
+    const randomPosition = Math.floor(
+        Math.random() * emptyIndexes.length
+    );
 
-    return empty[randomIndex];
+    return emptyIndexes[randomPosition];
 }
 
-function mediumComputerMove() {
-    const winningMove = canWin("O");
+function mediumMove() {
+    const winningMove = findWinningMove("O");
 
     if (winningMove !== null) {
         return winningMove;
     }
 
-    const blockingMove = canWin("X");
+    const blockingMove = findWinningMove("X");
 
     if (blockingMove !== null) {
         return blockingMove;
@@ -121,35 +125,33 @@ function mediumComputerMove() {
         return 4;
     }
 
-    return easyComputerMove();
+    return easyMove();
 }
 
-function minimax(boardCopy, isComputer) {
-    let winner = getWinnerFromBoard(boardCopy);
+function minimax(boardValues, isComputer, depth) {
+    const winner = getWinner(boardValues);
 
     if (winner === "O") {
-        return 10;
+        return 10 - depth;
     }
 
     if (winner === "X") {
-        return -10;
+        return depth - 10;
     }
 
-    const empty = boardCopy
-        .map((value, index) => value === "" ? index : null)
-        .filter((index) => index !== null);
-
-    if (empty.length === 0) {
+    if (isDraw(boardValues)) {
         return 0;
     }
+
+    const emptyIndexes = getEmptyIndexes(boardValues);
 
     if (isComputer) {
         let bestScore = -Infinity;
 
-        for (const index of empty) {
-            boardCopy[index] = "O";
-            const score = minimax(boardCopy, false);
-            boardCopy[index] = "";
+        for (const index of emptyIndexes) {
+            boardValues[index] = "O";
+            const score = minimax(boardValues, false, depth + 1);
+            boardValues[index] = "";
 
             bestScore = Math.max(bestScore, score);
         }
@@ -159,10 +161,10 @@ function minimax(boardCopy, isComputer) {
 
     let bestScore = Infinity;
 
-    for (const index of empty) {
-        boardCopy[index] = "X";
-        const score = minimax(boardCopy, true);
-        boardCopy[index] = "";
+    for (const index of emptyIndexes) {
+        boardValues[index] = "X";
+        const score = minimax(boardValues, true, depth + 1);
+        boardValues[index] = "";
 
         bestScore = Math.min(bestScore, score);
     }
@@ -170,28 +172,14 @@ function minimax(boardCopy, isComputer) {
     return bestScore;
 }
 
-function getWinnerFromBoard(boardCopy) {
-    for (const line of winningLines) {
-        const first = boardCopy[line[0]];
-        const second = boardCopy[line[1]];
-        const third = boardCopy[line[2]];
-
-        if (first !== "" && first === second && second === third) {
-            return first;
-        }
-    }
-
-    return null;
-}
-
-function hardComputerMove() {
+function hardMove() {
     let bestScore = -Infinity;
     let bestMove = null;
 
-    for (const index of emptyIndexes()) {
+    for (const index of getEmptyIndexes()) {
         board[index] = "O";
 
-        const score = minimax(board, false);
+        const score = minimax(board, false, 0);
 
         board[index] = "";
 
@@ -204,7 +192,9 @@ function hardComputerMove() {
     return bestMove;
 }
 
-function computerMove() {
+function makeComputerMove() {
+    computerTimer = null;
+
     if (gameFinished) {
         return;
     }
@@ -212,15 +202,19 @@ function computerMove() {
     let move;
 
     if (difficultySelect.value === "easy") {
-        move = easyComputerMove();
+        move = easyMove();
     } else if (difficultySelect.value === "medium") {
-        move = mediumComputerMove();
+        move = mediumMove();
     } else {
-        move = hardComputerMove();
+        move = hardMove();
+    }
+
+    if (move === null) {
+        return;
     }
 
     board[move] = "O";
-    computerIsMoving = false;
+    computerMoving = false;
 
     updateBoard();
 
@@ -231,11 +225,11 @@ function computerMove() {
 }
 
 function playMove(index) {
-    if (!gameStarted || gameFinished || board[index] !== "") {
+    if (!gameStarted || gameFinished || computerMoving) {
         return;
     }
 
-    if (modeSelect.value === "personvscomputer" && computerIsMoving) {
+    if (board[index] !== "") {
         return;
     }
 
@@ -248,27 +242,26 @@ function playMove(index) {
 
     if (modeSelect.value === "personvscomputer") {
         currentPlayer = "O";
-        computerIsMoving = true;
+        computerMoving = true;
         statusText.textContent = "Computer is thinking...";
-
-        setTimeout(computerMove, 400);
+        computerTimer = setTimeout(makeComputerMove, 400);
     } else {
-        if (currentPlayer === "X") {
-            currentPlayer = "O";
-        } else {
-            currentPlayer = "X";
-        }
-
-        statusText.textContent = "Player " + currentPlayer + "'s turn";
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        statusText.textContent = `Player ${currentPlayer}'s turn`;
     }
 }
 
 function startGame() {
+    if (computerTimer !== null) {
+        clearTimeout(computerTimer);
+        computerTimer = null;
+    }
+
     board = ["", "", "", "", "", "", "", "", ""];
     currentPlayer = "X";
     gameStarted = true;
     gameFinished = false;
-    computerIsMoving = false;
+    computerMoving = false;
 
     updateBoard();
 
@@ -280,11 +273,16 @@ function startGame() {
 }
 
 function resetGame() {
+    if (computerTimer !== null) {
+        clearTimeout(computerTimer);
+        computerTimer = null;
+    }
+
     board = ["", "", "", "", "", "", "", "", ""];
     currentPlayer = "X";
     gameStarted = false;
     gameFinished = false;
-    computerIsMoving = false;
+    computerMoving = false;
 
     updateBoard();
     statusText.textContent = "Press Start Game";
